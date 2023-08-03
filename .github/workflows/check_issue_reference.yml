@@ -16,7 +16,7 @@ jobs:
         id: custom_bot
         uses: your-username/custom-github-bot@v1
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+          BOT_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Comment on PR if no issue reference
         if: steps.custom_bot.outputs.has_issue_reference == 'false'
