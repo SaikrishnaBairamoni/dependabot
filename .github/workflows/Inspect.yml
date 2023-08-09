@@ -27,11 +27,30 @@ jobs:
           if [[ $PR_TITLE =~ $PATTERN || $PR_BODY =~ $PATTERN ]]; then
             echo "PR contains a GitHub issue reference."
           else
-            echo "PR does not contain a GitHub issue reference. Adding a comment..."
-            COMMENT_URL="https://api.github.com/repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments"
-            COMMENT_BODY="Please make sure to reference a GitHub issue in the PR title or description."
-            curl -X POST -H "Authorization: Bearer $BOT" -d "{\"body\": \"$COMMENT_BODY\"}" $COMMENT_URL
-            exit 1
+            echo "PR does not contain a GitHub issue reference. Checking if the issue exists..."
+
+            # Extract issue number from PR title or body
+            ISSUE_NUMBER=$(echo "$PR_TITLE $PR_BODY" | grep -oE $PATTERN | head -n 1 | tr -d '#')
+
+            if [[ -z "$ISSUE_NUMBER" ]]; then
+              echo "No issue reference found. Adding a comment..."
+              COMMENT_BODY="This pull request does not reference a GitHub issue. Please make sure to reference an existing GitHub issue in the PR title or description."
+            else
+              # Check if the issue with the extracted number exists
+              ISSUE_URL="https://api.github.com/repos/${GITHUB_REPOSITORY}/issues/${ISSUE_NUMBER}"
+              ISSUE_RESPONSE=$(curl -s -H "Authorization: Bearer $BOT" $ISSUE_URL)
+              if [[ $(echo "$ISSUE_RESPONSE" | jq -r '.message') == "Not Found" ]]; then
+                COMMENT_BODY="This pull request references an issue (#${ISSUE_NUMBER}), but the issue does not exist."
+              else
+                echo "The referenced issue exists."
+              fi
+            fi
+
+            if [[ -n "$COMMENT_BODY" ]]; then
+              COMMENT_URL="https://api.github.com/repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments"
+              curl -X POST -H "Authorization: Bearer $BOT" -d "{\"body\": \"$COMMENT_BODY\"}" $COMMENT_URL
+              exit 1
+            fi
           fi
       - name: Debug JSON Parsing
         run: |
