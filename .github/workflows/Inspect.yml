@@ -15,6 +15,7 @@ jobs:
     steps:
       - name: Install JQ Tool
         uses: mbround18/install-jq@v1
+        
       - name: Check PR for GitHub Issue Link
         run: |
           PR_NUMBER=$(jq -r ".number" $GITHUB_EVENT_PATH)
