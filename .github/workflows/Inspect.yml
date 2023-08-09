@@ -5,11 +5,15 @@ on:
       - opened
       - synchronize
 
+env:
+  BOT_TOKEN: ${{ secrets.BOT_TOKEN }}     
 jobs:
   inspect-pr:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Install JQ Tool
+        uses: mbround18/install-jq@v1
       - name: Check PR for GitHub Issue Link
         run: |
           PR_NUMBER=$(jq -r ".number" $GITHUB_EVENT_PATH)
@@ -29,5 +33,11 @@ jobs:
             curl -X POST -H "Authorization: Bearer $BOT_TOKEN" -d "{\"body\": \"$COMMENT_BODY\"}" $COMMENT_URL
             exit 1
           fi
-        env:
-          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+      - name: Debug JSON Parsing
+        run: |
+          PR_NUMBER=$(jq -r ".number" $GITHUB_EVENT_PATH)
+          PR_TITLE=$(jq -r ".pull_request.title" $GITHUB_EVENT_PATH)
+          PR_BODY=$(jq -r ".pull_request.body" $GITHUB_EVENT_PATH)
+          echo "PR_NUMBER: $PR_NUMBER"
+          echo "PR_TITLE: $PR_TITLE"
+          echo "PR_BODY: $PR_BODY"
