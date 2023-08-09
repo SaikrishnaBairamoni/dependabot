@@ -18,19 +18,20 @@ jobs:
       uses: actions/setup-node@v2
       with:
         node-version: '14'
-    
+    - name: Install JQ Tool
+      uses: mbround18/install-jq@v1
     - name: Install dependencies
       run: npm install
     
     - name: Check PR for Issues
       run: |
-        # Extract PR number
-        PR_NUMBER=$(echo "$GITHUB_REF" | sed -e 's,.*/,,')
+        PR_NUMBER=$(echo "${{ github.event.pull_request.number }}")
+        REPO_NAME=$(echo "${{ github.repository }}")
         
         # Check if PR has corresponding issues
         ISSUE_COUNT=$(curl -s -H "Authorization: Bearer ${{ secrets.BOT_TOKEN }}" \
-                        "https://api.github.com/repos/${GITHUB_REPOSITORY}/issues?state=all&labels=bug&per_page=100&page=1" \
-                        | jq --arg pr_number "$PR_NUMBER" '.[] | select(.body | contains("Pull Request #' + ($pr_number | tostring) + '")) | length')
+                        "https://api.github.com/repos/$REPO_NAME/issues?state=all&labels=bug&per_page=100&page=1" \
+                        | jq --arg pr_number "$PR_NUMBER" '.[] | select(.body | contains("Pull Request #\($pr_number)")) | length')
         
         if [ "$ISSUE_COUNT" -eq 0 ]; then
           echo "No corresponding GitHub issues found for this pull request."
