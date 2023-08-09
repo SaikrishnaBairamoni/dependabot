@@ -1,5 +1,6 @@
 name: Inspect PR for GitHub Issue Link
 on:
+  workflow_dispatch:
   pull_request:
     types:
       - opened
