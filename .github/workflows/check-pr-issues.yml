@@ -30,7 +30,7 @@ jobs:
         # Check if PR has corresponding issues
         ISSUE_COUNT=$(curl -s -H "Authorization: Bearer ${{ secrets.BOT_TOKEN }}" \
                         "https://api.github.com/repos/${GITHUB_REPOSITORY}/issues?state=all&labels=bug&per_page=100&page=1" \
-                        | jq --arg pr_number "$PR_NUMBER" '.[] | select(.body | contains("Pull Request #' + $pr_number + '")) | length')
+                        | jq --arg pr_number "$PR_NUMBER" '.[] | select(.body | contains("Pull Request #' + ($pr_number | tostring) + '")) | length')
         
         if [ "$ISSUE_COUNT" -eq 0 ]; then
           echo "No corresponding GitHub issues found for this pull request."
