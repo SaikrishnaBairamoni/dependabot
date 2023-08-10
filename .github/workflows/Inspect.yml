@@ -43,13 +43,12 @@ jobs:
             COMMENT_BODY="This pull request does not reference a GitHub issue. Please make sure to reference a GitHub issue in the PR title or description. Thanks"
             curl -X POST -H "Authorization: Bearer $DEVOPS_GITHUB_TOKEN" -d "{\"body\": \"$COMMENT_BODY\"}" $COMMENT_URL
           fi
-      - name: Check commit messages for issue references
+      - name: Lint and format code
         run: |
-          COMMIT_MSGS=$(git log --format=%B -n 5 ${{ github.event.before }}..${{ github.sha }})
-          if [[ $COMMIT_MSGS =~ $PATTERN ]]; then
-            echo "Commit messages contain a GitHub issue reference."
-          fi
-    
+          pip install flake8 black
+          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+          black .
+
       - name: Debug JSON Parsing
         run: |
           PR_NUMBER=$(jq -r ".number" $GITHUB_EVENT_PATH)
