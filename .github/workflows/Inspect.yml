@@ -24,7 +24,7 @@ jobs:
 
       - name: Run inspection script
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BOT: ${{ secrets.BOT }}
           PR_NUMBER: ${{ github.event.number }}
         run: |
           PR_TITLE=$(jq -r ".pull_request.title" $GITHUB_EVENT_PATH)
@@ -39,5 +39,5 @@ jobs:
             echo "PR does not contain a GitHub issue reference. Adding a comment..."
             COMMENT_URL="https://api.github.com/repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments"
             COMMENT_BODY="This pull request does not reference a GitHub issue. Please make sure to reference a GitHub issue in the PR title or description."
-            curl -X POST -H "Authorization: Bearer $GITHUB_TOKEN" -d "{\"body\": \"$COMMENT_BODY\"}" $COMMENT_URL
+            curl -X POST -H "Authorization: Bearer $BOT" -d "{\"body\": \"$COMMENT_BODY\"}" $COMMENT_URL
           fi
