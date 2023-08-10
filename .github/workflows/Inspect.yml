@@ -26,7 +26,7 @@ jobs:
 
       - name: Run inspection script
         env:
-          BOT: ${{ secrets.BOT }}
+          DEVOPS_GITHUB_TOKEN: ${{ secrets.DEVOPS_GITHUB_TOKEN }}
           PR_NUMBER: ${{ github.event.number }}
         run: |
           PR_TITLE=$(jq -r ".pull_request.title" $GITHUB_EVENT_PATH)
@@ -40,9 +40,16 @@ jobs:
           else
             echo "PR does not contain a GitHub issue reference. Adding a comment..."
             COMMENT_URL="https://api.github.com/repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments"
-            COMMENT_BODY="This pull request does not reference a GitHub issue. Please make sure to reference a GitHub issue in the PR title or description."
-            curl -X POST -H "Authorization: Bearer $BOT" -d "{\"body\": \"$COMMENT_BODY\"}" $COMMENT_URL
+            COMMENT_BODY="This pull request does not reference a GitHub issue. Please make sure to reference a GitHub issue in the PR title or description. Thanks"
+            curl -X POST -H "Authorization: Bearer $DEVOPS_GITHUB_TOKEN" -d "{\"body\": \"$COMMENT_BODY\"}" $COMMENT_URL
           fi
+      - name: Check commit messages for issue references
+        run: |
+          COMMIT_MSGS=$(git log --format=%B -n 5 ${{ github.event.before }}..${{ github.sha }})
+          if [[ $COMMIT_MSGS =~ $PATTERN ]]; then
+            echo "Commit messages contain a GitHub issue reference."
+          fi
+    
       - name: Debug JSON Parsing
         run: |
           PR_NUMBER=$(jq -r ".number" $GITHUB_EVENT_PATH)
@@ -51,3 +58,9 @@ jobs:
           echo "PR_NUMBER: $PR_NUMBER"
           echo "PR_TITLE: $PR_TITLE"
           echo "PR_BODY: $PR_BODY"
+      - name: Get PR author's info
+        run: |
+          PR_AUTHOR=$(jq -r ".pull_request.user.login" $GITHUB_EVENT_PATH)
+          PR_AUTHOR_PROFILE="https://github.com/$PR_AUTHOR"
+          echo "PR_AUTHOR: $PR_AUTHOR"
+          echo "PR_AUTHOR_PROFILE: $PR_AUTHOR_PROFILE"
