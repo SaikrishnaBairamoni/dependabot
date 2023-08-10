@@ -1,137 +1,43 @@
-# name: Inspect PR for GitHub Issue Link
-# on:
-#   workflow_dispatch:
-#   pull_request:
-#     types:
-#       - opened
-#       - synchronize
-
-# env:
-#   BOT: ${{ secrets.BOT }}     
-# jobs:
-#   inspect-pr:
-#     runs-on: ubuntu-latest
-
-#     steps:
-#       - name: Install JQ Tool
-#         uses: mbround18/install-jq@v1
-        
-#       - name: Check PR for GitHub Issue Link
-#         run: |
-#           PR_NUMBER=$(jq -r ".number" $GITHUB_EVENT_PATH)
-#           PR_TITLE=$(jq -r ".pull_request.title" $GITHUB_EVENT_PATH)
-#           PR_BODY=$(jq -r ".pull_request.body" $GITHUB_EVENT_PATH)
-#           BOT=$1
-
-#           # Regular expression pattern to match GitHub issue references (e.g., #123)
-#           PATTERN="#[0-9]+"
-
-#           if [[ $PR_TITLE =~ $PATTERN || $PR_BODY =~ $PATTERN ]]; then
-#             echo "PR contains a GitHub issue reference."
-#           else
-#             echo "PR does not contain a GitHub issue reference. Checking if the issue exists..."
-
-#             # Extract issue number from PR title or body
-#             ISSUE_NUMBER=$(echo "$PR_TITLE $PR_BODY" | grep -oE $PATTERN | head -n 1 | tr -d '#')
-
-#             if [[ -z "$ISSUE_NUMBER" ]]; then
-#               echo "No issue reference found. Adding a comment..."
-#               COMMENT_BODY="This pull request does not reference a GitHub issue. Please make sure to reference an existing GitHub issue in the PR title or description."
-#             else
-#               # Check if the issue with the extracted number exists
-#               ISSUE_URL="https://api.github.com/repos/${GITHUB_REPOSITORY}/issues/${ISSUE_NUMBER}"
-#               ISSUE_RESPONSE=$(curl -s -H "Authorization: Bearer $BOT" $ISSUE_URL)
-#               if [[ $(echo "$ISSUE_RESPONSE" | jq -r '.message') == "Not Found" ]]; then
-#                 COMMENT_BODY="This pull request references an issue (#${ISSUE_NUMBER}), but the issue does not exist."
-#               else
-#                 echo "The referenced issue exists."
-#               fi
-#             fi
-
-#             if [[ -n "$COMMENT_BODY" ]]; then
-#               COMMENT_URL="https://api.github.com/repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments"
-#               curl -X POST -H "Authorization: Bearer $BOT" -d "{\"body\": \"$COMMENT_BODY\"}" $COMMENT_URL
-#               exit 1
-#             fi
-#           fi
-#       - name: Debug JSON Parsing
-#         run: |
-#           PR_NUMBER=$(jq -r ".number" $GITHUB_EVENT_PATH)
-#           PR_TITLE=$(jq -r ".pull_request.title" $GITHUB_EVENT_PATH)
-#           PR_BODY=$(jq -r ".pull_request.body" $GITHUB_EVENT_PATH)
-#           echo "PR_NUMBER: $PR_NUMBER"
-#           echo "PR_TITLE: $PR_TITLE"
-#           echo "PR_BODY: $PR_BODY"
-name: Check PR 
-
+name: Inspect PR for GitHub Issue Link
 on:
   pull_request:
     types:
       - opened
       - synchronize
 
+env:
+  BOT: ${{ secrets.BOT }}     
 jobs:
-  check_issue_reference:
+  inspect-pr:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
-
-      - name: Set up Python
-        uses: actions/setup-python@v2
-        with:
-          python-version: 3.x
-
-      - name: Install dependencies
+      - name: Install JQ Tool
+        uses: mbround18/install-jq@v1
+      - name: Check PR for GitHub Issue Link
         run: |
-          python -m pip install --upgrade pip
-          pip install requests
+          PR_NUMBER=$(jq -r ".number" $GITHUB_EVENT_PATH)
+          PR_TITLE=$(jq -r ".pull_request.title" $GITHUB_EVENT_PATH)
+          PR_BODY=$(jq -r ".pull_request.body" $GITHUB_EVENT_PATH)
+          BOT=$1
 
-      - name: Run Python script
-        env:
-          GITHUB_API_URL: https://api.github.com
-          BOT: ${{ secrets.BOT }}
-          GITHUB_REPOSITORY: ${{ github.repository }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
+          # Regular expression pattern to match GitHub issue references (e.g., #123)
+          PATTERN="#[0-9]+"
+
+          if [[ $PR_TITLE =~ $PATTERN || $PR_BODY =~ $PATTERN ]]; then
+            echo "PR contains a GitHub issue reference."
+          else
+            echo "PR does not contain a GitHub issue reference. Adding a comment..."
+            COMMENT_URL="https://api.github.com/repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments"
+            COMMENT_BODY="This pull request does not reference a GitHub issue, Please make sure to reference a GitHub issue in the PR title or description."
+            curl -X POST -H "Authorization: Bearer $BOT" -d "{\"body\": \"$COMMENT_BODY\"}" $COMMENT_URL
+            exit 1
+          fi
+      - name: Debug JSON Parsing
         run: |
-          python - <<EOF
-          import os
-          import requests
-
-          GITHUB_API_URL = os.environ.get("GITHUB_API_URL")
-          BOT = os.environ.get("BOT")
-
-          def check_issue_reference(repo_full_name, pr_number):
-              url = f"{GITHUB_API_URL}/repos/{repo_full_name}/pulls/{pr_number}/commits"
-              headers = {"Authorization": f"token {BOT}"}
-              response = requests.get(url, headers=headers)
-              commits = response.json()
-
-              for commit in commits:
-                  if "message" in commit["commit"] and "issue #" in commit["commit"]["message"].lower():
-                      return True
-
-              return False
-
-          def add_comment_to_pr(repo_full_name, pr_number):
-              url = f"{GITHUB_API_URL}/repos/{repo_full_name}/issues/{pr_number}/comments"
-              headers = {"Authorization": f"token {BOT}"}
-              data = {
-                  "body": "This pull request does not reference a GitHub issue. Please link to an issue in the PR description."
-              }
-              response = requests.post(url, headers=headers, json=data)
-              if response.status_code == 201:
-                  print("Comment added successfully!")
-              else:
-                  print(f"Failed to add comment. Status code: {response.status_code}")
-
-          if __name__ == "__main__":
-              repo_full_name = os.environ.get("GITHUB_REPOSITORY")
-              pr_number = os.environ.get("PR_NUMBER")
-
-              has_issue_reference = check_issue_reference(repo_full_name, pr_number)
-
-              if not has_issue_reference:
-                  add_comment_to_pr(repo_full_name, pr_number)
-          EOF
+          PR_NUMBER=$(jq -r ".number" $GITHUB_EVENT_PATH)
+          PR_TITLE=$(jq -r ".pull_request.title" $GITHUB_EVENT_PATH)
+          PR_BODY=$(jq -r ".pull_request.body" $GITHUB_EVENT_PATH)
+          echo "PR_NUMBER: $PR_NUMBER"
+          echo "PR_TITLE: $PR_TITLE"
+          echo "PR_BODY: $PR_BODY"
