@@ -1,0 +1,109 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: CloudFormation template to deploy a Dockerized Map tool Java application on AWS ECS with a public domain
+
+Parameters:
+  AppImageUri:
+    Type: String
+    Description: Provide URI of the Docker image for your application
+
+  AppName:
+    Type: String
+    Description: Name of your Java application
+
+Resources:
+  MyRecordSet:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: Z212PNLKCOC2UB
+      Name: test.webapp.connectedvcs.com
+      Type: A
+      AliasTarget:
+        HostedZoneId: !GetAtt MyALB.CanonicalHostedZoneID
+        DNSName: !GetAtt MyALB.DNSName
+
+  ECSCluster:
+    Type: AWS::ECS::Cluster
+
+  ECSTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Ref AppName
+      RequiresCompatibilities:
+        - FARGATE
+      Cpu: "256"
+      Memory: "512"
+      NetworkMode: awsvpc
+      ExecutionRoleArn: !GetAtt ECSTaskExecutionRole.Arn
+      ContainerDefinitions:
+        - Name: !Ref AppName
+          Image: !Ref AppImageUri
+          Essential: true
+          PortMappings:
+            - ContainerPort: 80
+
+  MyALB:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: !Sub ${AppName}ALB
+      Scheme: internet-facing
+      Subnets:
+        - subnet-0a301b10e13c9c16f
+        - subnet-094385fc6eb24a639
+      SecurityGroups:
+        - sg-0a58b4fbefb5ccf95
+
+  ALBListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref MyALB
+      Port: 443
+      Protocol: HTTP
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref MyTargetGroup
+
+  MyTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: !Sub ${AppName}TargetGroup
+      Port: 80
+      Protocol: HTTP
+      VpcId: vpc-010b64e9e12248bf2
+      TargetType: ip
+
+  ECSService:
+    Type: AWS::ECS::Service
+    Properties:
+      ServiceName: !Sub ${AppName}Service
+      Cluster: !Ref ECSCluster
+      TaskDefinition: !Ref ECSTaskDefinition
+      DesiredCount: 1
+      LaunchType: FARGATE
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: ENABLED
+          Subnets:
+            - subnet-0a301b10e13c9c16f
+            - subnet-094385fc6eb24a639
+          SecurityGroups:
+            - sg-0a58b4fbefb5ccf95
+      LoadBalancers:
+        - ContainerName: !Ref AppName
+          ContainerPort: 80
+          TargetGroupArn: !Ref MyTargetGroup
+    DependsOn: MyALB
+
+  ECSTaskExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ecs-tasks.amazonaws.com
+            Action: "sts:AssumeRole"
+      Path: "/"
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
